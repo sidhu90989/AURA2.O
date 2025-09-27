@@ -1,0 +1,58 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+nlp-env/
+venv/
+.env/
+.env*/
+
+# Logs
+*.log
+logs/
+
+# Databases and serialized data
+*.db
+*.sqlite3
+
+# Face data / sensitive biometric artifacts
+known_faces/
+known_faces_.enc/
+
+# Encryption keys / secrets (adjust if you want to keep tracked sample key)
+*.key
+!.example.key
+
+# Config overrides
+config.local.*
+.env.local
+
+# IDE/editor
+.vscode/
+.idea/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary
+*.tmp
+*.bak
+~$*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dist/build
+build/
+dist/
+*.egg-info/
+
+# Images captured during runtime
+runtime_captures/
+
+# If you actually want to version sample faces, move them to a samples/ folder and whitelist
+# !samples/known_faces_sample/
