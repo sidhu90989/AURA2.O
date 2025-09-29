@@ -33,7 +33,9 @@ export default function GraphPanel() {
       </div>
       <div className="text-[11px] font-mono space-y-1 overflow-y-auto flex-1 pr-1">
         {result && <div className="border border-white/10 rounded px-2 py-1">Stored: {result.id}</div>}
-        {related.map((r,i) => <div key={i} className="border border-white/5 rounded px-2 py-1">{JSON.stringify(r)}</div>)}
+        {related.map((r: any, i: number) => (
+          <div key={i} className="border border-white/5 rounded px-2 py-1">{JSON.stringify(r)}</div>
+        ))}
       </div>
     </div>
   );

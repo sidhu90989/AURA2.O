@@ -31,7 +31,9 @@ export default function MemoryPanel() {
       </div>
       <div className="flex-1 overflow-y-auto text-[11px] font-mono space-y-1 pr-1">
         {loading && <div className="animate-pulse">Loading...</div>}
-        {!loading && items.map(m => <div key={m.id} className="truncate border border-white/5 bg-white/5 rounded px-2 py-1">{m.text}</div>)}
+        {!loading && items.map((m: MemoryItem) => (
+          <div key={m.id} className="truncate border border-white/5 bg-white/5 rounded px-2 py-1">{m.text}</div>
+        ))}
       </div>
     </div>
   );

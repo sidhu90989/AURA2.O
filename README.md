@@ -193,6 +193,20 @@ curl http://localhost:8000/health
 curl -X POST http://localhost:8000/memory/ -H 'Content-Type: application/json' -d '{"text":"Hello memory"}'
 ```
 
+### Unified Dev Startup
+You can spin up both backend and frontend:
+```bash
+make setup      # first time only (deps)
+make dev        # runs backend + frontend
+```
+Or use the helper script:
+```bash
+chmod +x scripts/dev.sh
+./scripts/dev.sh
+```
+
+Then open: http://localhost:3000
+
 ## 🔌 API Endpoint Summary (Updated)
 | Category | Endpoint | Method | Description |
 |----------|----------|--------|-------------|
