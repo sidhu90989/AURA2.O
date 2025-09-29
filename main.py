@@ -1,235 +1,319 @@
-# main.py
-from dotenv import load_dotenv
-load_dotenv()  # 👈 Before any other imports!
-from pydub import AudioSegment
-AudioSegment.ffmpeg = "C:/ffmpeg/bin/ffmpeg.exe"
-# Now access variables like:
+"""AURA Orchestrator
+
+Refactored lightweight orchestrator focused on:
+ - Safe startup under constrained environments (disk, network)
+ - Environment flag driven behavior (HEADLESS, MINIMAL_MODE, RUN_DURATION, HEADLESS_COMMANDS)
+ - Dependency injection with graceful degradation (stubs when heavy deps/services unavailable)
+ - Simple command routing and memory storage
+ - Heartbeat logging & structured shutdown
+
+Heavy cognitive/planning layers can be added later; this file establishes
+the execution spine needed for iterative enhancement.
+"""
+
+from __future__ import annotations
+
 import os
-openai_key = os.getenv("OPENAI_API_KEY")
-import asyncio
-import logging
-import threading
 import time
-from datetime import datetime
-from typing import Dict, Optional
+import json
+import signal
+import logging
+from typing import Any, Dict, List, Optional
 
-# Core components
-from access import AuraAssistant
-from ethical import CyberOperationsController, AuthorizationSystem
-from map_service import EthicalMapService
-from memory_manager import KnowledgeGraph
-from neuro_web_controller import NeuroWebController
-from nlp_processor import EnhancedNLPEngine, ConversationContext, NLPAnalysisResult, AIProvider, AnalysisMetrics
-from security import SecurityHandler
-from system_monitor import NeuroSystemMonitor
-from vision_processor import AdvancedVisionSystem
-from voice_interface import NeuroVoiceManager
 
-class AURACore:
-    def __init__(self):
-        """Central controller for AURA AI system"""
-        self._configure_system()
-        self._initialize_components()
-        self._establish_cross_links()
-        self._start_background_services()
-        
-        logger.info("AURA AI System Initialized")
+#############################################
+# Logging Setup
+#############################################
+logger = logging.getLogger("AURA.Core")
+if not logger.handlers:
+	logging.basicConfig(
+		level=logging.INFO,
+		format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+	)
 
-    def _configure_system(self):
-        """Initialize system-wide configurations"""
-        self.running = True
-        self.command_queue = []
-        self.security_status = "SECURE"
-        
-        # Configure logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(message)s',
-            handlers=[
-                logging.FileHandler("aura_core.log"),
-                logging.StreamHandler()
-            ]
-        )
-        global logger
-        logger = logging.getLogger('AURA.Core')
 
-    def _initialize_components(self):
-        """Initialize all system components"""
-        # Security First
-        self.security = SecurityHandler(security_level="maximum")
-        
-        # Core modules
-        self.voice = NeuroVoiceManager()
-        self.vision = AdvancedVisionSystem()
-        self.nlp = EnhancedNLPEngine(),ConversationContext(), NLPAnalysisResult(), AIProvider(), AnalysisMetrics()
-        self.memory = KnowledgeGraph(encryption_key=self.security.key)
-        self.access = AuraAssistant()
-        self.cyber = CyberOperationsController(AuthorizationSystem())
-        self.maps = EthicalMapService(self.cyber)
-        self.web = NeuroWebController()
-        self.monitor = NeuroSystemMonitor()
-        
-        # System integrations
-        self.auth = AuthorizationSystem()
+#############################################
+# Environment Flags & Helpers
+#############################################
+def env_bool(name: str, default: bool = False) -> bool:
+	val = os.getenv(name)
+	if val is None:
+		return default
+	return val.strip().lower() in {"1", "true", "yes", "on"}
 
-    def _establish_cross_links(self):
-        """Connect components into neural network"""
-        # Voice integrations
-        self.voice.link_services(self.vision, self.nlp)
-        
-        # Security integrations
-        self.cyber.security = self.security
-        self.web.security = self.security
-        self.memory.security = self.security
-        
-        # Knowledge sharing
-        self.nlp.context_memory = self.memory
-        self.vision.face_db = self.memory
-        
-        # Hardware access
-        self.cyber.link_hardware_controller(self.access)
-        
-        logger.info("Neural Component Network Established")
 
-    def _start_background_services(self):
-        """Start essential background services"""
-        # Security monitor
-        self.security_thread = threading.Thread(target=self._security_daemon)
-        self.security_thread.daemon = True
-        self.security_thread.start()
-        
-        # System health monitor
-        self.health_thread = threading.Thread(target=self.monitor._monitoring_loop)
-        self.health_thread.daemon = True
-        self.health_thread.start()
-        
-        # Continuous voice listening
-        self.voice.start_continuous_listening()
+HEADLESS = env_bool("HEADLESS", True)
+MINIMAL_MODE = env_bool("MINIMAL_MODE", True)
+RUN_DURATION = int(os.getenv("RUN_DURATION", "0"))  # 0 = unlimited
+HEADLESS_COMMANDS = os.getenv("HEADLESS_COMMANDS", "")
 
-    async def main_loop(self):
-        """Primary async control loop"""
-        try:
-            while self.running:
-                await self._process_commands()
-                await asyncio.sleep(0.1)
-        except KeyboardInterrupt:
-            self.graceful_shutdown()
 
-    def _security_daemon(self):
-        """Real-time security monitoring"""
-        while self.running:
-            try:
-                audit = self.security.get_security_audit(1)
-                if audit['suspicious_activity_count'] > 0:
-                    self._handle_security_alert()
-                
-                if self.monitor.get_recommendations():
-                    self._execute_system_actions()
-                    
-                time.sleep(10)
-            except Exception as e:
-                logger.error(f"Security daemon error: {e}")
+#############################################
+# Fallback / Minimal Implementations
+#############################################
+class MinimalNLPEngine:
+	"""Very small NLP stub to keep pipeline running in constrained mode."""
 
-    def _process_commands(self):
-        """Handle incoming voice commands"""
-        if not self.voice.command_queue.empty():
-            command = self.voice.command_queue.get()
-            logger.info(f"Processing command: {command}")
-            
-            # Security verification
-            if not self.security.validate_command(command):
-                logger.warning("Command security check failed")
-                return
-                
-            response = self._route_command(command)
-            self._generate_response(response)
+	def analyze(self, text: str) -> Dict[str, Any]:
+		sentiment = "positive" if any(w in text.lower() for w in ["good", "great", "awesome"]) else "neutral"
+		return {
+			"text": text,
+			"intent": "emergency" if "emergency" in text.lower() else "generic",
+			"emotion": sentiment,
+			"sentiment": {"label": sentiment.upper(), "score": 0.75 if sentiment == "positive" else 0.5},
+			"language": "en",
+		}
 
-    def _route_command(self, command: str) -> Dict:
-        """Intelligent command routing"""
-        try:
-            # Security emergency protocol
-            if self._is_emergency(command):
-                return self.cyber.emergency_protocol(command)
-            
-            # Hardware control
-            if any(keyword in command for keyword in ["wifi", "data", "torch"]):
-                return self.access.execute_hardware_command(command)
-            
-            # Navigation commands
-            if any(keyword in command for keyword in ["navigate", "route", "location"]):
-                return self.maps.handle_voice_command(command)
-            
-            # Web operations
-            if any(keyword in command for keyword in ["search", "download", "browser"]):
-                return self.web.handle_voice_command(command)
-            
-            # Vision system
-            if any(keyword in command for keyword in ["camera", "recognize", "vision"]):
-                return self.vision.handle_voice_command(command)
-            
-            # Default NLP processing
-            return self._handle_conversation(command)
-            
-        except Exception as e:
-            logger.error(f"Command routing failed: {e}")
-            return {"error": "Command processing failed"}
 
-    def _handle_conversation(self, command: str) -> Dict:
-        """Handle natural language interaction"""
-        analysis = self.nlp.analyze(command)
-        response = self.nlp.generate_response(analysis)
-        return {
-            "type": "conversation",
-            "response": response,
-            "analysis": analysis
-        }
+class InMemoryKnowledgeGraph:
+	"""Fallback memory store when Neo4j or heavy dependencies are unavailable."""
 
-    def _generate_response(self, response: Dict):
-        """Handle system responses"""
-        if 'response' in response:
-            self.voice.speak(response['response'])
-        elif 'message' in response:
-            self.voice.speak(response['message'])
-            
-        # Log interaction in knowledge graph
-        self.memory.store_context({
-            "command": response.get('original_command'),
-            "response": response,
-            "timestamp": datetime.now().isoformat()
-        })
+	def __init__(self):
+		self._items: List[Dict[str, Any]] = []
 
-    def graceful_shutdown(self):
-        """Safe system shutdown procedure"""
-        logger.info("Initiating graceful shutdown...")
-        self.running = False
-        
-        # Shutdown sequence
-        components = [
-            self.voice,
-            self.vision,
-            self.web,
-            self.cyber,
-            self.memory,
-            self.monitor
-        ]
-        
-        for component in components:
-            try:
-                if hasattr(component, "shutdown"):
-                    component.shutdown()
-                elif hasattr(component, "close"):
-                    component.close()
-                logger.info(f"Shut down {type(component).__name__}")
-            except Exception as e:
-                logger.error(f"Error shutting down {type(component).__name__}: {e}")
-        
-        logger.info("AURA shutdown complete")
+	def store_context(self, data: Dict[str, Any]) -> str:
+		data = dict(data)
+		data["_id"] = str(len(self._items) + 1)
+		self._items.append(data)
+		return data["_id"]
+
+	def query_by_emotion(self, emotion: str) -> List[Dict[str, Any]]:
+		return [x for x in self._items if x.get("emotion") == emotion][-10:]
+
+
+class SilentVoice:
+	def speak(self, *_args, **_kwargs):
+		pass
+
+
+class NoVision:
+	def process(self):  # placeholder
+		return {"status": "vision_disabled"}
+
+
+#############################################
+# Dynamic Imports with Safe Fallbacks
+#############################################
+def safe_import(name: str):
+	try:
+		module = __import__(name)
+		return module
+	except Exception as e:
+		logger.warning(f"Module '{name}' unavailable or failed: {e}")
+		return None
+
+
+#############################################
+# Orchestrator
+#############################################
+class AURAOrchestrator:
+	"""Core orchestrator coordinating subsystems with graceful degradation."""
+
+	def __init__(self,
+				 minimal: bool = MINIMAL_MODE,
+				 headless: bool = HEADLESS,
+				 run_duration: int = RUN_DURATION,
+				 headless_commands: str = HEADLESS_COMMANDS):
+		self.minimal = minimal
+		self.headless = headless
+		self.run_duration = run_duration
+		self._start_time = time.time()
+		self._shutdown = False
+		self._heartbeat_interval = 10
+
+		# Signal handling
+		signal.signal(signal.SIGINT, self._signal_handler)
+		signal.signal(signal.SIGTERM, self._signal_handler)
+
+		logger.info(f"Starting AURAOrchestrator (minimal={self.minimal}, headless={self.headless})")
+
+		self.voice = SilentVoice()
+		self.vision = NoVision()
+		self.web = None
+		self.memory = None
+		self.security = None
+		self.access = None
+		self.nlp = None
+
+		self._init_services()
+
+		# Prepare headless command queue
+		self.command_queue: List[str] = []
+		if self.headless and headless_commands:
+			# Accept JSON array or comma separated
+			headless_commands = headless_commands.strip()
+			try:
+				if headless_commands.startswith("["):
+					self.command_queue = json.loads(headless_commands)
+				else:
+					self.command_queue = [c.strip() for c in headless_commands.split(",") if c.strip()]
+			except Exception as e:
+				logger.error(f"Failed to parse HEADLESS_COMMANDS: {e}")
+		logger.info(f"Headless command queue: {self.command_queue}")
+
+	# ---------------- Lifecycle -----------------
+	def _signal_handler(self, signum, _frame):
+		logger.info(f"Signal {signum} received; initiating shutdown.")
+		self._shutdown = True
+
+	def _init_services(self):
+		# NLP
+		if self.minimal:
+			self.nlp = MinimalNLPEngine()
+		else:
+			nlp_module = safe_import("nlp_processor")
+			if nlp_module and hasattr(nlp_module, "EnhancedNLPEngine"):
+				try:
+					self.nlp = nlp_module.EnhancedNLPEngine()
+				except Exception as e:
+					logger.error(f"Full NLP init failed, using minimal stub: {e}")
+					self.nlp = MinimalNLPEngine()
+			else:
+				self.nlp = MinimalNLPEngine()
+
+		# Memory
+		if self.minimal:
+			self.memory = InMemoryKnowledgeGraph()
+		else:
+			mm = safe_import("memory_manager")
+			if mm and hasattr(mm, "KnowledgeGraph"):
+				try:
+					self.memory = mm.KnowledgeGraph()
+				except Exception as e:
+					logger.error(f"Neo4j memory unavailable ({e}); using in-memory fallback")
+					self.memory = InMemoryKnowledgeGraph()
+			else:
+				self.memory = InMemoryKnowledgeGraph()
+
+		# Security
+		sec = safe_import("security")
+		if sec and hasattr(sec, "SecurityHandler"):
+			try:
+				self.security = sec.SecurityHandler(security_level="medium")
+			except Exception as e:
+				logger.warning(f"Security handler init failed: {e}")
+		# Access (system control)
+		access_mod = safe_import("access")
+		if access_mod and hasattr(access_mod, "AuraAssistant"):
+			try:
+				self.access = access_mod.AuraAssistant()
+			except Exception as e:
+				logger.warning(f"AuraAssistant init failed: {e}")
+
+		# Web controller (optional; heavy)
+		if not self.minimal:
+			web_mod = safe_import("neuro_web_controller")
+			if web_mod and hasattr(web_mod, "NeuroWebController"):
+				try:
+					self.web = web_mod.NeuroWebController(voice_interface=self.voice)
+				except Exception as e:
+					logger.warning(f"Web controller init failed: {e}")
+
+	# ---------------- Command Processing -----------------
+	def process_command(self, command: str) -> Dict[str, Any]:
+		command = command.strip()
+		logger.info(f"Processing command: {command}")
+
+		# Emergency
+		if "emergency" in command.lower():
+			return self._handle_emergency(command)
+
+		# Prefixed routing
+		if command.startswith("web:") and self.web:
+			query = command[len("web:"):].strip()
+			return {"web_search": query}
+		if command.startswith("memory store:"):
+			text = command.split(":", 1)[1].strip()
+			stored_id = self.memory.store_context({
+				"text": text,
+				"emotion": "neutral",
+				"intent": "store",
+			}) if self.memory else None
+			return {"stored": stored_id}
+		if command.startswith("memory emotion:"):
+			emotion = command.split(":", 1)[1].strip()
+			results = self.memory.query_by_emotion(emotion) if self.memory else []
+			return {"results": results}
+
+		# Generic: run NLP analysis then store
+		analysis = self.nlp.analyze(command) if self.nlp else {"text": command}
+		if self.memory:
+			try:
+				self.memory.store_context({
+					"text": analysis.get("text", command),
+					"emotion": analysis.get("emotion", "neutral"),
+					"intent": analysis.get("intent", "generic"),
+					"sentiment": analysis.get("sentiment"),
+					"language": analysis.get("language", "en"),
+				})
+			except Exception as e:
+				logger.warning(f"Failed to store context: {e}")
+		return analysis
+
+	def _handle_emergency(self, command: str) -> Dict[str, Any]:
+		logger.warning(f"Emergency detected in command: {command}")
+		# Hook for future escalation (notifications, system actions)
+		return {"status": "emergency_acknowledged"}
+
+	# ---------------- Main Loop -----------------
+	def run(self):
+		logger.info("AURAOrchestrator entering run loop")
+		next_heartbeat = time.time() + self._heartbeat_interval
+		try:
+			while not self._shutdown:
+				# Heartbeat
+				now = time.time()
+				if now >= next_heartbeat:
+					logger.info("Heartbeat: alive | memory_items=%s", getattr(self.memory, '_items', '__'))
+					next_heartbeat = now + self._heartbeat_interval
+
+				# Run duration enforcement
+				if self.run_duration and (now - self._start_time) >= self.run_duration:
+					logger.info("Run duration reached; shutting down")
+					break
+
+				# Command acquisition
+				if self.headless:
+					if self.command_queue:
+						cmd = self.command_queue.pop(0)
+						self.process_command(cmd)
+					else:
+						time.sleep(0.5)
+				else:
+					try:
+						cmd = input("AURA> ").strip()
+						if cmd.lower() in {"exit", "quit"}:
+							break
+						if cmd:
+							self.process_command(cmd)
+					except EOFError:
+						break
+		finally:
+			self.shutdown()
+
+	# ---------------- Shutdown -----------------
+	def shutdown(self):
+		if self._shutdown:
+			logger.info("Shutdown already in progress")
+		self._shutdown = True
+		logger.info("Shutting down AURAOrchestrator")
+		# Cleanup web controller if present
+		try:
+			if self.web and hasattr(self.web, "cleanup"):
+				self.web.cleanup()
+		except Exception as e:
+			logger.warning(f"Web controller cleanup failed: {e}")
+		logger.info("Shutdown complete")
+
+
+#############################################
+# Entrypoint
+#############################################
+def main():
+	orch = AURAOrchestrator()
+	orch.run()
+
 
 if __name__ == "__main__":
-    aura = AURACore()
-    
-    try:
-        # Start async main loop
-        asyncio.run(aura.main_loop())
-    except KeyboardInterrupt:
-        aura.graceful_shutdown()
+	main()
+

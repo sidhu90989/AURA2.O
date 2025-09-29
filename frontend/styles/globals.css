@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fonts (can swap to local hosting later) */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --gradient-accent: linear-gradient(135deg,#19b7ff 0%,#6d3bff 50%,#19b7ff 100%);
+  --grid-color: rgba(255,255,255,0.05);
+}
+
+html, body {
+  background: radial-gradient(circle at 30% 20%, #0d1320 0%, #05070d 60%, #020308 100%);
+  color: #d9e6f2;
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 100%;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 70px 70px, 70px 70px;
+  mask-image: radial-gradient(circle at center, rgba(255,255,255,0.25), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.aura-panel {
+  @apply rounded-xl p-4 bg-aura-panel shadow-aura-glow border border-white/10 backdrop-blur-md relative overflow-hidden;
+}
+
+.aura-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, rgba(109,59,255,0.25), transparent 60%);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+.glow-text {
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 8px rgba(25,183,255,0.5);
+}
+
+.scanline {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.04) 0px,
+    rgba(255,255,255,0.04) 1px,
+    transparent 2px,
+    transparent 4px
+  );
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  animation: flicker 6s linear infinite;
+  z-index: 5;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.3; }
+}
+
+.status-pulse {
+  @apply relative inline-flex h-3 w-3;
+}
+.status-pulse > span {
+  @apply animate-ping absolute inline-flex h-full w-full rounded-full bg-aura-accent opacity-75;
+}
+.status-pulse > i {
+  @apply relative inline-flex rounded-full h-3 w-3 bg-aura-accent;
+}
