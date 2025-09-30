@@ -35,7 +35,11 @@ class Settings(BaseSettings):
     allowed_origins: str = "*"
     auth_token_secret: str = "dev-secret-change"  # Replace in production
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # Ignore extra env vars not yet modeled
+    )
 
 @lru_cache
 def get_settings() -> Settings:

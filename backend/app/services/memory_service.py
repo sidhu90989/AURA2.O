@@ -16,7 +16,7 @@ class MemoryService:
             user_id=data.user_id,
             text=data.text,
             embedding_ref=ids[0],
-            metadata=data.metadata or {}
+            meta=data.metadata or {}
         )
         db.add(mem)
         db.commit()
