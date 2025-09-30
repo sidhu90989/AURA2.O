@@ -1,6 +1,6 @@
 import os
 import uuid
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Sequence
 
 try:
     import faiss  # type: ignore
@@ -39,33 +39,28 @@ class VectorStore:
 
     def add_texts(self, texts: List[str]) -> List[str]:
         embeddings = self.model.encode(texts)
+        if isinstance(embeddings, list):  # sentence-transformers may return list
+            embeddings = np.array(embeddings)
         new_ids = [str(uuid.uuid4()) for _ in texts]
-        if faiss and self.index:
-            self.index.add(np.array(embeddings, dtype="float32"))
-        # append metadata
+        if faiss and getattr(self, 'index', None) is not None:
+            self.index.add(np.asarray(embeddings, dtype="float32"))  # type: ignore[arg-type]
         self.ids.extend(new_ids)
         self._persist()
         return new_ids
 
     def similarity_search(self, query: str, k: int = 5) -> List[Tuple[str, float]]:
         emb = self.model.encode([query])
-        if faiss and self.index:
-            D, I = self.index.search(np.array(emb, dtype="float32"), k)
+        if isinstance(emb, list):
+            emb = np.array(emb)
+        if faiss and getattr(self, 'index', None) is not None:
+            D, I = self.index.search(np.asarray(emb, dtype="float32"), k)  # type: ignore[arg-type]
             results: List[Tuple[str, float]] = []
             for dist, idx in zip(D[0], I[0]):
                 if idx < len(self.ids):
                     results.append((self.ids[idx], float(dist)))
             return results
-        # Fallback brute force using numpy cosine
-        all_embs = self.model.encode(self.ids) if self.ids else []
-        sims: List[Tuple[str, float]] = []
-        if len(all_embs):
-            q = emb[0]
-            for i, (doc_id, vec) in enumerate(zip(self.ids, all_embs)):
-                sim = float(np.dot(q, vec) / (np.linalg.norm(q) * np.linalg.norm(vec)))
-                sims.append((doc_id, 1 - sim))  # mimic distance
-            sims.sort(key=lambda x: x[1])
-        return sims[:k]
+        # Fallback: no index; return empty (could add heuristic string similarity later)
+        return []
 
     def _persist(self):
         if faiss and self.index:

@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 
-try:
-    from system_monitor import SystemMetricsCollector
+
+try:  # attempt to import root-level module
+    from system_monitor import SystemMetricsCollector  # type: ignore
     collector = SystemMetricsCollector()
-except Exception:
+except Exception:  # pragma: no cover
     collector = None
 
 router = APIRouter(prefix="/system", tags=["system"])

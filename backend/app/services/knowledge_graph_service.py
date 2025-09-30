@@ -1,7 +1,7 @@
 from typing import Dict, Any, List
 
 try:
-    from memory_manager import KnowledgeGraph  # existing module
+    from memory_manager import KnowledgeGraph  # type: ignore  # existing module
 except Exception:  # pragma: no cover
     KnowledgeGraph = None  # type: ignore
 
@@ -9,10 +9,10 @@ class KnowledgeGraphService:
     def __init__(self):
         self.available = KnowledgeGraph is not None
         self.graph = None
-        if self.available:
+        if self.available and KnowledgeGraph:  # type: ignore[truthy-function]
             try:
-                self.graph = KnowledgeGraph()
-            except Exception:
+                self.graph = KnowledgeGraph()  # type: ignore[operator]
+            except Exception:  # pragma: no cover
                 self.available = False
                 self.graph = None
 

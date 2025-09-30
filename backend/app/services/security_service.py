@@ -2,14 +2,21 @@ import base64
 from typing import Any
 
 try:
-    from security import SecurityHandler  # reuse existing module at repo root
+    from security import SecurityHandler  # type: ignore  # reuse existing module at repo root
 except Exception:  # pragma: no cover
     SecurityHandler = None  # type: ignore
 
 class SecurityService:
     def __init__(self):
         self.available = SecurityHandler is not None
-        self.handler = SecurityHandler() if self.available else None
+        if self.available:
+            try:
+                self.handler = SecurityHandler()  # type: ignore[operator]
+            except Exception:  # pragma: no cover
+                self.handler = None
+                self.available = False
+        else:
+            self.handler = None
 
     def encrypt(self, data: Any) -> str:
         if not self.available or not self.handler:

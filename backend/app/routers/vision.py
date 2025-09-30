@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File
 from pydantic import BaseModel
 
 try:
-    import vision_processor  # existing module placeholder
+    import vision_processor  # type: ignore  # existing module placeholder
 except Exception:  # pragma: no cover
     vision_processor = None
 
